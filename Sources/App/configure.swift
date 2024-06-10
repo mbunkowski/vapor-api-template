@@ -17,7 +17,9 @@ public func configure(_ app: Application) async throws {
         tls: .prefer(try .init(configuration: .clientDefault)))
     ), as: .psql)
 
-    app.migrations.add(CreateTodo())
-    // register routes
+    app.migrations.add(CreateUser())
+    
+    app.passwords.use(.bcrypt)
+
     try routes(app)
 }

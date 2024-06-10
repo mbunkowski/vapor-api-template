@@ -2,7 +2,7 @@ import Vapor
 import Fluent
 import struct Foundation.UUID
 
-final class User: Model, @unchecked Sendable {
+final class User: Model, Authenticatable, @unchecked Sendable {
     static let schema = "users"
     
     @ID(key: .id)
@@ -22,6 +22,10 @@ final class User: Model, @unchecked Sendable {
     
     init() { }
 
+    init(id: UUID) {
+        self.id = id
+    }
+    
     init(id: UUID? = nil, email: String, passwordHash: String) {
         self.id = id
         self.email = email
@@ -30,17 +34,7 @@ final class User: Model, @unchecked Sendable {
     
     func toDTO() -> UserDTO {
         .init(
-            id: self.id,
             email: self.$email.value
         )
-    }
-}
-
-extension User: ModelAuthenticatable {
-    static let usernameKey = \User.$email
-    static let passwordHashKey = \User.$passwordHash
-
-    func verify(password: String) throws -> Bool {
-        try Bcrypt.verify(password, created: self.passwordHash)
     }
 }

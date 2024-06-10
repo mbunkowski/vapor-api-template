@@ -1,11 +1,3 @@
-//
-//  File.swift
-//  
-//
-//  Created by Mateusz Bunkowski on 6/9/24.
-//
-
-import Foundation
 import Fluent
 import Vapor
 

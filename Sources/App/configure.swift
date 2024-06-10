@@ -2,6 +2,8 @@ import NIOSSL
 import Fluent
 import FluentPostgresDriver
 import Vapor
+import JWT
+
 
 // configures your application
 public func configure(_ app: Application) async throws {
@@ -20,6 +22,8 @@ public func configure(_ app: Application) async throws {
     app.migrations.add(CreateUser())
     
     app.passwords.use(.bcrypt)
+    
+    await app.jwt.keys.addHMAC(key: "secret", digestAlgorithm: .sha256)
 
     try routes(app)
 }

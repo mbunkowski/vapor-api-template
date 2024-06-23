@@ -20,6 +20,9 @@ public func configure(_ app: Application) async throws {
     ), as: .psql)
 
     app.migrations.add(CreateUser())
+    app.migrations.add(CreateRefreshToken())
+
+    try await app.autoMigrate()
     
     app.passwords.use(.bcrypt)
     

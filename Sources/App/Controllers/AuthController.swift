@@ -7,6 +7,7 @@ struct AuthController: RouteCollection {
         routes.group("auth") { user in
             user.post("register", use: self.create)
             user.post("login", use: self.login)
+            user.grouped(UserAuthenticator(), User.guardMiddleware()).post("refresh-token", use: self.refreshToken)
         }
     }
 
@@ -35,6 +36,47 @@ struct AuthController: RouteCollection {
         }
         let payload = try JWT(with: user)
         let token = try await req.jwt.sign(payload)
-        return TokensDTO(access_token: token, expires_at: payload.expiration.value)
+        let refreshToken = try await generateRefreshToken(req: req, user: user)
+        return TokensDTO(access_token: token, expires_at: payload.expiration.value, refresh_token: refreshToken.token)
+    }
+    
+    @Sendable
+    func refreshToken(req: Request) async throws -> TokensDTO {
+        try RefreshToken.Refresh.validate(content: req)
+        let user = try req.auth.require(User.self)
+        let reqToken = try req.content.decode(RefreshToken.Refresh.self)
+        
+        guard let dbToken = try await RefreshToken.query(on: req.db).filter(\RefreshToken.$token == reqToken.refresh_token).first() else {
+            throw Abort(.badRequest)
+        }
+        
+        guard user.id == dbToken.$user.id else {
+            throw Abort(.unauthorized)
+        }
+        
+        try await dbToken.delete(on: req.db)
+        
+        guard dbToken.expiresAt > Date() else {
+            throw Abort(.badRequest, reason: "Token expired.")
+        }
+        
+        let jwt = try generateJWT(req: req, user: user)
+        let token = try await req.jwt.sign(jwt)
+        let refreshToken = try await generateRefreshToken(req: req, user: user)
+        return TokensDTO(access_token: token, expires_at: jwt.expiration.value, refresh_token: refreshToken.token)
+    }
+    
+    private func generateJWT(req: Request, user: User) throws -> JWT {
+        return try JWT(with: user)
+    }
+    
+    private func generateRefreshToken(req: Request, user: User) async throws -> RefreshToken {
+        let refreshToken = RefreshToken(userId: try user.requireID(), token: generate(bits: 256), expiresAt: Date().addingTimeInterval(60*60))
+        try await refreshToken.save(on: req.db)
+        return refreshToken
+    }
+    
+    private func generate(bits: Int) -> String {
+        [UInt8].random(count: bits / 8).hex
     }
 }
